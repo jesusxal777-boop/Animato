@@ -1,188 +1,30 @@
 import type { UploadedModel } from "@/types/model";
-
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Chip, Spinner } from "@heroui/react";
-
+import { Badge, Button, ButtonLink, Card, Empty, Stat } from "@santi020k/lumen-react";
 import { title, subtitle } from "@/components/primitives";
 import { listFiles, uploadModel } from "@/lib/api";
 import { setModel } from "@/lib/model-store";
 import { ACCEPT_ATTR, ACCEPTED_MODEL_EXTENSIONS } from "@/types/model";
 
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+function formatSize(bytes:number){if(bytes<1024)return bytes+" B";if(bytes<1024*1024)return (bytes/1024).toFixed(0)+" KB";return (bytes/(1024*1024)).toFixed(1)+" MB"}
 
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function extOf(filename: string): string {
-  const dot = filename.lastIndexOf(".");
-
-  return dot === -1 ? "" : filename.slice(dot + 1).toUpperCase();
-}
-
-export default function IndexPage() {
-  const navigate = useNavigate();
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const [files, setFiles] = useState<UploadedModel[]>([]);
-  const [listLoading, setListLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Load the list of already-uploaded models on mount.
-  useEffect(() => {
-    let cancelled = false;
-
-    listFiles()
-      .then((list) => {
-        if (!cancelled) setFiles(list);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load files.");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setListLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const open = (model: UploadedModel) => {
-    setModel(model);
-    navigate("/editor");
-  };
-
-  const openFileBrowser = () => inputRef.current?.click();
-
-  const handleFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-
-    event.target.value = "";
-    if (!file) return;
-
-    setError(null);
-    setUploading(true);
-    try {
-      open(await uploadModel(file));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed.");
-      setUploading(false);
-    }
-  };
-
-  return (
-    <section className="mx-auto flex min-h-screen max-w-5xl flex-col items-center gap-8 px-6 py-16">
-      <div className="inline-block max-w-2xl justify-center text-center">
-        <span className={title()}>Animate any&nbsp;</span>
-        <span className={title({ color: "violet" })}>3D model&nbsp;</span>
-        <br />
-        <span className={title()}>with a single prompt.</span>
-        <div className={subtitle({ class: "mt-4" })}>
-          Open a 3D file to inspect its meshes, skeleton, and animation clips —
-          then edit them with AI in a live Three.js editor.
-        </div>
-      </div>
-
-      <input
-        ref={inputRef}
-        accept={ACCEPT_ATTR}
-        className="hidden"
-        type="file"
-        onChange={handleFile}
-      />
-
-      <Button
-        isDisabled={uploading}
-        size="lg"
-        variant="primary"
-        onPress={openFileBrowser}
-      >
-        {uploading ? <Spinner size="sm" /> : <CubeIcon />}
-        {uploading ? "Uploading…" : "Open 3D file"}
-      </Button>
-
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        <span className="text-sm text-muted">Supported formats:</span>
-        {ACCEPTED_MODEL_EXTENSIONS.map((ext) => (
-          <Chip key={ext} size="sm" variant="secondary">
-            {ext}
-          </Chip>
-        ))}
-      </div>
-
-      {error && (
-        <div className="max-w-md rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-center text-sm text-danger">
-          {error}
-        </div>
-      )}
-
-      {/* Previously uploaded models. */}
-      <div className="w-full">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-          Uploaded models{files.length > 0 && ` (${files.length})`}
-        </h2>
-
-        {listLoading ? (
-          <div className="flex items-center justify-center gap-3 py-10 text-muted">
-            <Spinner size="sm" />
-            <span className="text-sm">Loading uploaded models…</span>
-          </div>
-        ) : files.length === 0 ? (
-          <p className="py-10 text-center text-sm text-muted">
-            No models uploaded yet. Open a 3D file to get started.
-          </p>
-        ) : (
-          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {files.map((model) => (
-              <li key={model.filename}>
-                <button
-                  className="flex w-full items-center gap-3 rounded-xl border border-separator bg-surface px-4 py-3 text-left transition-colors hover:border-accent/60 hover:bg-accent/5"
-                  onClick={() => open(model)}
-                >
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
-                    <CubeIcon />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span
-                      className="block truncate text-sm font-medium text-foreground"
-                      title={model.filename}
-                    >
-                      {model.filename}
-                    </span>
-                    <span className="block text-[11px] text-muted">
-                      {extOf(model.filename)} · {formatSize(model.size)}
-                    </span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function CubeIcon() {
-  return (
-    <svg
-      fill="none"
-      height={20}
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      viewBox="0 0 24 24"
-      width={20}
-    >
-      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-      <path d="m3.27 6.96 8.73 5.05 8.73-5.05M12 22.08V12" />
-    </svg>
-  );
+export default function IndexPage(){
+ const navigate=useNavigate(),inputRef=useRef<HTMLInputElement>(null);
+ const [files,setFiles]=useState<UploadedModel[]>([]),[loading,setLoading]=useState(true),[uploading,setUploading]=useState(false),[error,setError]=useState<string|null>(null);
+ useEffect(()=>{let cancelled=false;listFiles().then(list=>{if(!cancelled)setFiles(list)}).catch((err:unknown)=>{if(!cancelled)setError(err instanceof Error?err.message:"Failed to load models.")}).finally(()=>{if(!cancelled)setLoading(false)});return()=>{cancelled=true}},[]);
+ const open=(model:UploadedModel)=>{setModel(model);navigate("/editor")};
+ const handleFile=async(e:React.ChangeEvent<HTMLInputElement>)=>{const file=e.target.files?.[0];e.target.value="";if(!file)return;setError(null);setUploading(true);try{open(await uploadModel(file))}catch(err){setError(err instanceof Error?err.message:"Upload failed.")}finally{setUploading(false)}};
+ return <main className="animato-home"><Card className="animato-home-card" glass="strong"><div style={{display:"grid",gap:24,padding:8}}>
+  <header style={{display:"flex",justifyContent:"space-between",gap:18,alignItems:"flex-start",flexWrap:"wrap"}}>
+   <div><div className="animato-brand"><span className="animato-mark">A</span><span>Animato</span><Badge variant="success">MCP ready</Badge></div><h1 style={{...title(),fontSize:"clamp(2.6rem,7vw,5.6rem)",margin:"26px 0 10px"}}>Animate 3D<br/>with one prompt.</h1><p style={{...subtitle({class:""}),maxWidth:700}}>A local-first animation workspace for rigged 3D models. Connect GPT, Claude, Grok or another MCP host and let the agent drive the creative workflow.</p></div>
+   <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(90px,1fr))",gap:8}}><Stat label="Formats" value="GLB · FBX · OBJ" variant="glass"/><Stat label="Engine" value="Blender" variant="glass"/><Stat label="Transport" value="MCP" variant="glass"/></div>
+  </header>
+  <section className="animato-drop"><input ref={inputRef} accept={ACCEPT_ATTR} type="file" hidden onChange={handleFile}/><div style={{fontSize:48,opacity:.9}}>◇</div><h2 style={{margin:"8px 0"}}>Start a new animation</h2><p style={{color:"var(--ink-soft)",margin:"0 auto 18px",maxWidth:560}}>Upload a rigged character, inspect it in the 3D editor, then describe the motion you want.</p><Button size="lg" loading={uploading} onClick={()=>inputRef.current?.click()}>Open 3D file</Button><div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap",marginTop:14}}>{ACCEPTED_MODEL_EXTENSIONS.map(ext=><Badge key={ext} variant="secondary">{ext}</Badge>)}</div></section>
+  <section><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:12}}><div><h2 style={{margin:"0 0 4px"}}>Your models</h2><p style={{margin:0,color:"var(--ink-soft)"}}>Models available to the local Animato engine.</p></div><Button variant="secondary" onClick={()=>inputRef.current?.click()}>Upload</Button></div>
+   {error&&<Card variant="muted"><p role="alert" style={{margin:0,color:"var(--danger)"}}>{error}</p></Card>}
+   {loading?<Card variant="muted"><p>Loading models…</p></Card>:files.length===0?<Empty glass><h3>No models yet</h3><p>Upload your first GLB, FBX or OBJ to create an animation workspace.</p></Empty>:<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))",gap:10}}>{files.map(model=><Card key={model.filename} variant="interactive" as="article"><button onClick={()=>open(model)} style={{all:"unset",cursor:"pointer",display:"block",width:"100%"}}><strong style={{display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={model.filename}>{model.filename}</strong><span style={{display:"block",color:"var(--ink-soft)",fontSize:13,marginTop:5}}>{model.filename.split(".").pop()?.toUpperCase()} · {formatSize(model.size)}</span></button></Card>)}</div>}
+  </section>
+  <footer style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap",borderTop:"1px solid var(--line)",paddingTop:18}}><span style={{color:"var(--ink-muted)",fontSize:13}}>DreamByte Studios · Local-first · MCP native</span><ButtonLink href="https://github.com/jesusxal777-boop/Animato" newTab showArrow variant="ghost">GitHub</ButtonLink></footer>
+ </div></Card></main>
 }
