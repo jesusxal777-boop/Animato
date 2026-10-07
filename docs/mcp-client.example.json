@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "animato": {
+      "command": "uv",
+      "args": [
+        "run",
+        "python",
+        "-m",
+        "app.mcp_server"
+      ],
+      "env": {
+        "ANIMATO_MCP_ALLOW_CODE_EXECUTION": "true"
+      }
+    }
+  }
+}
